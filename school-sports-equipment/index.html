@@ -12,7 +12,7 @@
 <body class="bg-slate-50 text-slate-800">
   <div id="root"></div>
   <script type="text/babel">
-    const { useState, useMemo } = React;
+    const { useState, useMemo, useEffect } = React;
 
     const INITIAL_CLASSES = [
       // 機械科 (各3班)
@@ -77,6 +77,8 @@
       { id: 'eq-8', name: '皮克球拍組', category: '拍類', unit: '組', total: 15, available: 15, icon: '🏓' }
     ];
 
+    const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000; // 180 天 (約 6 個月)
+
     function App() {
       const [activeTab, setActiveTab] = useState('borrow');
       const [records, setRecords] = useState([]);
@@ -87,7 +89,7 @@
       const [studentId, setStudentId] = useState('');
       const [studentName, setStudentName] = useState('');
       const [classSearchTerm, setClassSearchTerm] = useState('');
-      const [historySearchTerm, setHistorySearchTerm] = useState(''); // 歷史紀錄搜尋關鍵字
+      const [historySearchTerm, setHistorySearchTerm] = useState('');
 
       const [selectedItems, setSelectedItems] = useState([
         { equipmentId: 'eq-1', qty: 1 }
@@ -106,16 +108,22 @@
       const [newEqTotal, setNewEqTotal] = useState(10);
       const [newClassName, setNewClassName] = useState('');
 
+      // 自動清理超過 6 個月舊紀錄功能
+      const cleanupOldRecords = (currentRecords) => {
+        const now = Date.now();
+        return currentRecords.filter(r => (now - r.timestamp) <= SIX_MONTHS_MS);
+      };
+
       const filteredClassList = useMemo(() => {
         if (!classSearchTerm.trim()) return classList;
         return classList.filter(c => c.toLowerCase().includes(classSearchTerm.trim().toLowerCase()));
       }, [classList, classSearchTerm]);
 
-      // 歷史紀錄過濾
       const filteredHistoryRecords = useMemo(() => {
-        if (!historySearchTerm.trim()) return records;
+        const validRecords = cleanupOldRecords(records);
+        if (!historySearchTerm.trim()) return validRecords;
         const term = historySearchTerm.trim().toLowerCase();
-        return records.filter(r => 
+        return validRecords.filter(r => 
           r.studentName.toLowerCase().includes(term) ||
           r.studentId.toLowerCase().includes(term) ||
           r.studentClass.toLowerCase().includes(term) ||
@@ -164,8 +172,10 @@
           return { id: eq.id, name: eq.name, qty: parseInt(item.qty, 10), unit: eq.unit || '件' };
         });
 
+        const now = Date.now();
         const newRecord = {
-          id: `REC-${Date.now().toString().slice(-6)}`,
+          id: `REC-${now.toString().slice(-6)}`,
+          timestamp: now,
           studentClass,
           studentId: studentId.trim(),
           studentName: studentName.trim(),
@@ -180,7 +190,7 @@
           return bItem ? { ...eq, available: eq.available - bItem.qty } : eq;
         }));
 
-        setRecords([newRecord, ...records]);
+        setRecords([newRecord, ...cleanupOldRecords(records)]);
         setSelectedItems([{ equipmentId: equipment[0].id, qty: 1 }]);
         setStudentId('');
         setStudentName('');
@@ -200,6 +210,30 @@
         }));
 
         alert(`🎉 歸還成功！學號 ${target.studentId} 已解除鎖定！`);
+      };
+
+      // 管理員手動單筆刪除歷史紀錄
+      const handleDeleteHistoryRecord = (recordId) => {
+        const target = records.find(r => r.id === recordId);
+        if (!target) return;
+        if (!target.returned) {
+          if (!confirm('⚠️ 警告：該學生尚未歸還器材！強制刪除紀錄將直接解除其鎖定狀態，確定要刪除嗎？')) return;
+        } else {
+          if (!confirm('確定要刪除這筆歷史紀錄嗎？（刪除後不可復原）')) return;
+        }
+
+        setRecords(records.filter(r => r.id !== recordId));
+      };
+
+      // 管理員手動執行清理超過 6 個月紀錄
+      const handleManualCleanupSixMonths = () => {
+        const now = Date.now();
+        const initialCount = records.length;
+        const cleaned = records.filter(r => (now - r.timestamp) <= SIX_MONTHS_MS);
+        const removedCount = initialCount - cleaned.length;
+
+        setRecords(cleaned);
+        alert(`🧹 清理完成！共刪除了 ${removedCount} 筆超過 6 個月的舊歷史紀錄。`);
       };
 
       const handleAdminLogin = (e) => {
@@ -261,7 +295,7 @@
         <div className="min-h-screen bg-slate-100 p-4 font-sans max-w-4xl mx-auto">
           <header className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-5 rounded-2xl shadow-lg mb-6 text-center">
             <h1 className="text-2xl font-bold tracking-wide">🏫 學校運動器材借還管理系統</h1>
-            <p className="text-xs text-blue-200 mt-1">支援關鍵字搜尋班級、多品項借用與智慧鎖定</p>
+            <p className="text-xs text-blue-200 mt-1">支援關鍵字搜尋班級、多品項借用與智慧鎖定 (歷史自動保留 6 個月)</p>
           </header>
 
           <div className="flex justify-center gap-2 mb-6">
@@ -388,7 +422,7 @@
                   <div className="flex justify-between items-center border-b pb-3">
                     <div>
                       <h2 className="font-bold text-lg text-slate-800">全校器材、班級與歷史紀錄管理</h2>
-                      <p className="text-xs text-slate-500">已解鎖 | 管理員控制台</p>
+                      <p className="text-xs text-slate-500">已解鎖 | 管理員控制台 (自動保留 6 個月歷史紀錄)</p>
                     </div>
                     <button onClick={() => setIsAdminLoggedIn(false)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold">
                       🔒 上鎖離開
@@ -398,14 +432,25 @@
                   {/* 管理員專用：歷史借還總表 */}
                   <div className="bg-slate-50 p-4 rounded-xl border space-y-3">
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                      <h3 className="font-bold text-sm text-slate-800">📜 全校歷史借還紀錄總表 (共 {records.length} 筆)</h3>
-                      <input 
-                        type="text" 
-                        placeholder="搜尋學生姓名、學號或班級..." 
-                        value={historySearchTerm} 
-                        onChange={e => setHistorySearchTerm(e.target.value)} 
-                        className="p-1.5 border rounded-lg text-xs bg-white w-full sm:w-60" 
-                      />
+                      <div>
+                        <h3 className="font-bold text-sm text-slate-800">📜 全校歷史借還紀錄總表 (共 {filteredHistoryRecords.length} 筆)</h3>
+                        <p className="text-[11px] text-slate-500">系統自動限制最多保留近 6 個月內的紀錄</p>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <button 
+                          onClick={handleManualCleanupSixMonths}
+                          className="bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 px-2.5 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap"
+                        >
+                          🧹 清理 6 個月前紀錄
+                        </button>
+                        <input 
+                          type="text" 
+                          placeholder="搜尋學生姓名/學號/班級..." 
+                          value={historySearchTerm} 
+                          onChange={e => setHistorySearchTerm(e.target.value)} 
+                          className="p-1.5 border rounded-lg text-xs bg-white w-full sm:w-48" 
+                        />
+                      </div>
                     </div>
 
                     {filteredHistoryRecords.length === 0 ? (
@@ -420,12 +465,13 @@
                               <th className="p-2">借用品項與數量</th>
                               <th className="p-2">借用時間</th>
                               <th className="p-2">歸還時間</th>
+                              <th className="p-2 text-center">操作</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y">
                             {filteredHistoryRecords.map(r => (
                               <tr key={r.id} className="hover:bg-slate-50">
-                                <td className="p-2 font-bold">
+                                <td className="p-2 font-bold whitespace-nowrap">
                                   {r.returned ? (
                                     <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">🟢 已歸還</span>
                                   ) : (
@@ -439,8 +485,16 @@
                                 <td className="p-2 font-medium text-slate-700">
                                   {r.items.map(i => `${i.name} × ${i.qty} ${i.unit || '組'}`).join('、 ')}
                                 </td>
-                                <td className="p-2 text-slate-500">{r.time}</td>
-                                <td className="p-2 text-slate-500">{r.returnTime || '—'}</td>
+                                <td className="p-2 text-slate-500 whitespace-nowrap">{r.time}</td>
+                                <td className="p-2 text-slate-500 whitespace-nowrap">{r.returnTime || '—'}</td>
+                                <td className="p-2 text-center whitespace-nowrap">
+                                  <button 
+                                    onClick={() => handleDeleteHistoryRecord(r.id)} 
+                                    className="bg-rose-100 hover:bg-rose-200 text-rose-700 border border-rose-300 px-2 py-1 rounded text-xs font-bold transition"
+                                  >
+                                    🗑️ 刪除
+                                  </button>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
