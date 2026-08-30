@@ -14,10 +14,57 @@
   <script type="text/babel">
     const { useState, useMemo } = React;
 
+    // 更新為全校 10 個科系完整班級清單 (格式：一年一班)
     const INITIAL_CLASSES = [
-      '高一忠班', '高一孝班', '高一仁班', '高一愛班',
-      '高二忠班', '高二孝班', '高二仁班', '高二愛班',
-      '高三忠班', '高三孝班', '高三仁班', '高三愛班'
+      // 機械科 (各3班)
+      '機械一年一班', '機械一年二班', '機械一年三班',
+      '機械二年一班', '機械二年二班', '機械二年三班',
+      '機械三年一班', '機械三年二班', '機械三年三班',
+
+      // 電圖科 (各3班)
+      '電圖一年一班', '電圖一年二班', '電圖一年三班',
+      '電圖二年一班', '電圖二年二班', '電圖二年三班',
+      '電圖三年一班', '電圖三年二班', '電圖三年三班',
+
+      // 觀光科 (各2班)
+      '觀光一年一班', '觀光一年二班',
+      '觀光二年一班', '觀光二年二班',
+      '觀光三年一班', '觀光三年二班',
+
+      // 商經科 (各5班)
+      '商經一年一班', '商經一年二班', '商經一年三班', '商經一年四班', '商經一年五班',
+      '商經二年一班', '商經二年二班', '商經二年三班', '商經二年四班', '商經二年五班',
+      '商經三年一班', '商經三年二班', '商經三年三班', '商經三年四班', '商經三年五班',
+
+      // 國貿科 (各2班)
+      '國貿一年一班', '國貿一年二班',
+      '國貿二年一班', '國貿二年二班',
+      '國貿三年一班', '國貿三年二班',
+
+      // 會事科 (各2班)
+      '會事一年一班', '會事一年二班',
+      '會事二年一班', '會事二年二班',
+      '會事三年一班', '會事三年二班',
+
+      // 資處科 (各1班)
+      '資處一年一班',
+      '資處二年一班',
+      '資處三年一班',
+
+      // 室設科 (各2班)
+      '室設一年一班', '室設一年二班',
+      '室設二年一班', '室設二年二班',
+      '室設三年一班', '室設三年二班',
+
+      // 家設科 (各1班)
+      '家設一年一班',
+      '家設二年一班',
+      '家設三年一班',
+
+      // 體育科 (各1班)
+      '體育一年一班',
+      '體育二年一班',
+      '體育三年一班'
     ];
 
     const INITIAL_EQUIPMENT = [
@@ -45,12 +92,11 @@
         { equipmentId: 'eq-1', qty: 1 }
       ]);
 
-      // 管理員登入狀態與修改後的驗證密碼：11111
+      // 管理員登入密碼：11111
       const ADMIN_PASSWORD = "11111";
       const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
       const [inputPassword, setInputPassword] = useState('');
 
-      // 新增器材與新增班級狀態
       const [showAddModal, setShowAddModal] = useState(false);
       const [newEqName, setNewEqName] = useState('');
       const [newEqCategory, setNewEqCategory] = useState('田徑');
@@ -139,7 +185,6 @@
         alert(`🎉 歸還成功！學號 ${target.studentId} 已解除鎖定！`);
       };
 
-      // 管理員登入
       const handleAdminLogin = (e) => {
         e.preventDefault();
         if (inputPassword === ADMIN_PASSWORD) {
@@ -150,7 +195,6 @@
         }
       };
 
-      // 管理員新增班級
       const handleAddClass = (e) => {
         e.preventDefault();
         const name = newClassName.trim();
@@ -162,7 +206,6 @@
         alert(`🎉 成功新增班級：${name}`);
       };
 
-      // 管理員新增器材
       const handleCreateEquipment = (e) => {
         e.preventDefault();
         if (!newEqName.trim()) return alert('請輸入器材名稱！');
@@ -185,7 +228,6 @@
         alert(`🎉 成功新增全新器材品項：${newEq.name} 共 ${qty} 件！`);
       };
 
-      // 微調數量
       const handleAdjustQty = (id, delta) => {
         setEquipment(prev => prev.map(eq => {
           if (eq.id === id) {
@@ -219,7 +261,7 @@
                   <label className="font-bold text-xs text-blue-900 block">🔍 第一步：快速搜尋與選擇班級</label>
                   <input 
                     type="text" 
-                    placeholder="輸入關鍵字快速搜尋 (例如: 高一 或 忠班)..." 
+                    placeholder="輸入關鍵字快速搜尋 (例如: 商經、資處、二年、五班...)" 
                     value={classSearchTerm} 
                     onChange={e => setClassSearchTerm(e.target.value)} 
                     className="w-full p-2 border rounded-lg text-xs bg-white" 
@@ -337,7 +379,7 @@
                     <form onSubmit={handleAddClass} className="flex gap-2">
                       <input 
                         type="text" 
-                        placeholder="輸入新班級名稱 (例: 體育班、高一特班)" 
+                        placeholder="輸入新班級名稱 (例: 商經一年六班)" 
                         value={newClassName} 
                         onChange={e => setNewClassName(e.target.value)} 
                         className="flex-1 p-2 border rounded-xl text-sm" 
