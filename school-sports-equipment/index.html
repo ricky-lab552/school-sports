@@ -14,6 +14,12 @@
   <script type="text/babel">
     const { useState, useMemo } = React;
 
+    const INITIAL_CLASSES = [
+      '高一忠班', '高一孝班', '高一仁班', '高一愛班',
+      '高二忠班', '高二孝班', '高二仁班', '高二愛班',
+      '高三忠班', '高三孝班', '高三仁班', '高三愛班'
+    ];
+
     const INITIAL_EQUIPMENT = [
       { id: 'eq-1', name: '標準籃球 (Molten 7號)', category: '球類', total: 30, available: 22, icon: '🏀' },
       { id: 'eq-2', name: '標準排球 (Mikasa)', category: '球類', total: 25, available: 18, icon: '🏐' },
@@ -28,26 +34,34 @@
       const [activeTab, setActiveTab] = useState('borrow');
       const [records, setRecords] = useState([]);
       const [equipment, setEquipment] = useState(INITIAL_EQUIPMENT);
+      const [classList, setClassList] = useState(INITIAL_CLASSES);
 
       const [studentClass, setStudentClass] = useState('');
       const [studentId, setStudentId] = useState('');
       const [studentName, setStudentName] = useState('');
-      
+      const [classSearchTerm, setClassSearchTerm] = useState('');
+
       const [selectedItems, setSelectedItems] = useState([
         { equipmentId: 'eq-1', qty: 1 }
       ]);
 
-      // 管理員登入狀態與密碼設定（驗證密碼：1234）
+      // 管理員登入狀態與修改後的驗證密碼：11111
       const ADMIN_PASSWORD = "11111";
       const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
       const [inputPassword, setInputPassword] = useState('');
 
-      // 新增器材表單狀態
+      // 新增器材與新增班級狀態
       const [showAddModal, setShowAddModal] = useState(false);
       const [newEqName, setNewEqName] = useState('');
       const [newEqCategory, setNewEqCategory] = useState('田徑');
       const [newEqIcon, setNewEqIcon] = useState('💣');
       const [newEqTotal, setNewEqTotal] = useState(60);
+      const [newClassName, setNewClassName] = useState('');
+
+      const filteredClassList = useMemo(() => {
+        if (!classSearchTerm.trim()) return classList;
+        return classList.filter(c => c.toLowerCase().includes(classSearchTerm.trim().toLowerCase()));
+      }, [classList, classSearchTerm]);
 
       const lockedStudentMap = useMemo(() => {
         const map = {};
@@ -75,6 +89,7 @@
 
       const handleBorrowSubmit = (e) => {
         e.preventDefault();
+        if (!studentClass) return alert('請選擇班級！');
         if (isLocked) return alert(`借用失敗：學號 ${studentId} 目前有未歸還器材，系統已鎖定！`);
 
         for (const item of selectedItems) {
@@ -91,7 +106,7 @@
 
         const newRecord = {
           id: `REC-${Date.now().toString().slice(-6)}`,
-          studentClass: studentClass.trim(),
+          studentClass,
           studentId: studentId.trim(),
           studentName: studentName.trim(),
           time: new Date().toLocaleString(),
@@ -124,7 +139,7 @@
         alert(`🎉 歸還成功！學號 ${target.studentId} 已解除鎖定！`);
       };
 
-      // 管理員密碼驗證
+      // 管理員登入
       const handleAdminLogin = (e) => {
         e.preventDefault();
         if (inputPassword === ADMIN_PASSWORD) {
@@ -133,6 +148,18 @@
         } else {
           alert('🔒 密碼錯誤！無法進入管理員頁面。');
         }
+      };
+
+      // 管理員新增班級
+      const handleAddClass = (e) => {
+        e.preventDefault();
+        const name = newClassName.trim();
+        if (!name) return alert('請輸入班級名稱！');
+        if (classList.includes(name)) return alert('該班級已經存在於清單中！');
+
+        setClassList([...classList, name]);
+        setNewClassName('');
+        alert(`🎉 成功新增班級：${name}`);
       };
 
       // 管理員新增器材
@@ -158,7 +185,7 @@
         alert(`🎉 成功新增全新器材品項：${newEq.name} 共 ${qty} 件！`);
       };
 
-      // 管理員微調數量
+      // 微調數量
       const handleAdjustQty = (id, delta) => {
         setEquipment(prev => prev.map(eq => {
           if (eq.id === id) {
@@ -174,21 +201,41 @@
         <div className="min-h-screen bg-slate-100 p-4 font-sans max-w-4xl mx-auto">
           <header className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-5 rounded-2xl shadow-lg mb-6 text-center">
             <h1 className="text-2xl font-bold tracking-wide">🏫 學校運動器材借還管理系統</h1>
-            <p className="text-xs text-blue-200 mt-1">支援單次多品項借用與智慧鎖定</p>
+            <p className="text-xs text-blue-200 mt-1">支援關鍵字搜尋班級、多品項借用與智慧鎖定</p>
           </header>
 
           <div className="flex justify-center gap-2 mb-6">
             <button onClick={() => setActiveTab('borrow')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'borrow' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>➕ 登記借用</button>
             <button onClick={() => setActiveTab('records')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'records' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>📋 借還紀錄</button>
-            <button onClick={() => setActiveTab('inventory')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>🔒 器材管理 (須密碼)</button>
+            <button onClick={() => setActiveTab('inventory')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>🔒 器材與班級管理</button>
           </div>
 
           {activeTab === 'borrow' && (
             <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200 space-y-5">
               <h2 className="font-bold text-lg text-slate-800 border-b pb-2">填寫借用人資料</h2>
               <form onSubmit={handleBorrowSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <input type="text" placeholder="班級 (例：高二忠班)" value={studentClass} onChange={e => setStudentClass(e.target.value)} className="p-3 border rounded-xl text-sm" required />
+                
+                <div className="bg-blue-50/60 p-3 rounded-xl border border-blue-100 space-y-2">
+                  <label className="font-bold text-xs text-blue-900 block">🔍 第一步：快速搜尋與選擇班級</label>
+                  <input 
+                    type="text" 
+                    placeholder="輸入關鍵字快速搜尋 (例如: 高一 或 忠班)..." 
+                    value={classSearchTerm} 
+                    onChange={e => setClassSearchTerm(e.target.value)} 
+                    className="w-full p-2 border rounded-lg text-xs bg-white" 
+                  />
+                  <select 
+                    value={studentClass} 
+                    onChange={e => setStudentClass(e.target.value)} 
+                    className="w-full p-2.5 border rounded-xl text-sm font-bold bg-white"
+                    required
+                  >
+                    <option value="">-- 請選擇班級 (符合搜尋條件共 {filteredClassList.length} 個) --</option>
+                    {filteredClassList.map((c, i) => <option key={i} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input type="text" placeholder="學號 (例：1120101)" value={studentId} onChange={e => setStudentId(e.target.value)} className="p-3 border rounded-xl text-sm" required />
                   <input type="text" placeholder="學生姓名" value={studentName} onChange={e => setStudentName(e.target.value)} className="p-3 border rounded-xl text-sm" required />
                 </div>
@@ -255,11 +302,10 @@
           {activeTab === 'inventory' && (
             <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200 space-y-4">
               {!isAdminLoggedIn ? (
-                /* 密碼驗證畫面 */
                 <div className="max-w-sm mx-auto my-8 text-center space-y-4 p-6 border rounded-2xl bg-slate-50">
                   <div className="text-4xl">🔒</div>
                   <h2 className="font-bold text-lg text-slate-800">管理員身份驗證</h2>
-                  <p className="text-xs text-slate-500">為了防止學生誤改庫存，進入此區請輸入管理員密碼</p>
+                  <p className="text-xs text-slate-500">進入此區請輸入管理員密碼</p>
                   <form onSubmit={handleAdminLogin} className="space-y-3">
                     <input 
                       type="password" 
@@ -275,53 +321,71 @@
                   </form>
                 </div>
               ) : (
-                /* 已驗證成功：管理員控制台 */
-                <div>
-                  <div className="flex justify-between items-center border-b pb-3 mb-4">
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center border-b pb-3">
                     <div>
-                      <h2 className="font-bold text-lg text-slate-800">全校器材庫存與內容管理</h2>
+                      <h2 className="font-bold text-lg text-slate-800">全校器材與班級管理</h2>
                       <p className="text-xs text-slate-500">已解鎖 | 管理員控制台</p>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow">
-                        ➕ 新增全新器材品項
-                      </button>
-                      <button onClick={() => setIsAdminLoggedIn(false)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold">
-                        🔒 上鎖離開
-                      </button>
-                    </div>
+                    <button onClick={() => setIsAdminLoggedIn(false)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold">
+                      🔒 上鎖離開
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {equipment.map(eq => (
-                      <div key={eq.id} className="p-4 border rounded-xl bg-slate-50 flex justify-between items-center">
-                        <div>
-                          <span className="text-2xl">{eq.icon}</span>
-                          <h3 className="font-bold text-sm mt-1">{eq.name}</h3>
-                          <p className="text-xs text-slate-500">分類：{eq.category}</p>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <div className="text-base font-bold text-emerald-600">
-                            在庫: {eq.available} <span className="text-xs text-slate-400 font-normal">/ 總數: {eq.total}</span>
+                  <div className="bg-slate-50 p-4 rounded-xl border space-y-2">
+                    <h3 className="font-bold text-sm text-slate-800">🏫 新增可選班級</h3>
+                    <form onSubmit={handleAddClass} className="flex gap-2">
+                      <input 
+                        type="text" 
+                        placeholder="輸入新班級名稱 (例: 體育班、高一特班)" 
+                        value={newClassName} 
+                        onChange={e => setNewClassName(e.target.value)} 
+                        className="flex-1 p-2 border rounded-xl text-sm" 
+                        required 
+                      />
+                      <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow">
+                        新增班級
+                      </button>
+                    </form>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-bold text-sm text-slate-800">📦 全校器材庫存清單</h3>
+                      <button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow">
+                        ➕ 新增全新器材
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {equipment.map(eq => (
+                        <div key={eq.id} className="p-4 border rounded-xl bg-slate-50 flex justify-between items-center">
+                          <div>
+                            <span className="text-2xl">{eq.icon}</span>
+                            <h3 className="font-bold text-sm mt-1">{eq.name}</h3>
+                            <p className="text-xs text-slate-500">分類：{eq.category}</p>
                           </div>
-                          <div className="flex gap-1 justify-end">
-                            <button onClick={() => handleAdjustQty(eq.id, -1)} className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">-1</button>
-                            <button onClick={() => handleAdjustQty(eq.id, 1)} className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">+1</button>
+                          <div className="text-right space-y-1">
+                            <div className="text-base font-bold text-emerald-600">
+                              在庫: {eq.available} <span className="text-xs text-slate-400 font-normal">/ 總數: {eq.total}</span>
+                            </div>
+                            <div className="flex gap-1 justify-end">
+                              <button onClick={() => handleAdjustQty(eq.id, -1)} className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">-1</button>
+                              <button onClick={() => handleAdjustQty(eq.id, 1)} className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">+1</button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* 新增器材彈窗 Modal */}
           {showAddModal && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl">
-                <h3 className="font-bold text-lg border-b pb-2">➕ 新增器材內容（例如：鉛球）</h3>
+                <h3 className="font-bold text-lg border-b pb-2">➕ 新增器材內容</h3>
                 <form onSubmit={handleCreateEquipment} className="space-y-3">
                   <div>
                     <label className="text-xs font-bold text-slate-600 block mb-1">器材品項名稱</label>
