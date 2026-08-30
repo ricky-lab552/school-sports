@@ -33,10 +33,16 @@
       const [studentId, setStudentId] = useState('');
       const [studentName, setStudentName] = useState('');
       
-      // 支援多項器材選取
       const [selectedItems, setSelectedItems] = useState([
         { equipmentId: 'eq-1', qty: 1 }
       ]);
+
+      // 管理員新增器材表單狀態
+      const [showAddModal, setShowAddModal] = useState(false);
+      const [newEqName, setNewEqName] = useState('');
+      const [newEqCategory, setNewEqCategory] = useState('田徑');
+      const [newEqIcon, setNewEqIcon] = useState('💣');
+      const [newEqTotal, setNewEqTotal] = useState(60);
 
       const lockedStudentMap = useMemo(() => {
         const map = {};
@@ -66,7 +72,6 @@
         e.preventDefault();
         if (isLocked) return alert(`借用失敗：學號 ${studentId} 目前有未歸還器材，系統已鎖定！`);
 
-        // 庫存檢查
         for (const item of selectedItems) {
           const eq = equipment.find(e => e.id === item.equipmentId);
           const qty = parseInt(item.qty, 10);
@@ -79,7 +84,6 @@
           return { id: eq.id, name: eq.name, qty: parseInt(item.qty, 10) };
         });
 
-        // 建立借用紀錄
         const newRecord = {
           id: `REC-${Date.now().toString().slice(-6)}`,
           studentClass: studentClass.trim(),
@@ -90,7 +94,6 @@
           items: borrowItems
         };
 
-        // 扣減庫存
         setEquipment(prev => prev.map(eq => {
           const bItem = borrowItems.find(i => i.id === eq.id);
           return bItem ? { ...eq, available: eq.available - bItem.qty } : eq;
@@ -100,7 +103,7 @@
         setSelectedItems([{ equipmentId: equipment[0].id, qty: 1 }]);
         setStudentId('');
         setStudentName('');
-        alert('✅ 成功完成多項器材登記借用！');
+        alert('✅ 成功完成登記借用！');
       };
 
       const handleReturnRecord = (recordId) => {
@@ -116,6 +119,41 @@
         alert(`🎉 歸還成功！學號 ${target.studentId} 已解除鎖定！`);
       };
 
+      // 管理員：新增器材邏輯（例如：新增 鉛球 60 顆）
+      const handleCreateEquipment = (e) => {
+        e.preventDefault();
+        if (!newEqName.trim()) return alert('請輸入器材名稱！');
+        const qty = parseInt(newEqTotal, 10);
+        if (isNaN(qty) || qty <= 0) return alert('數量必須大於 0！');
+
+        const newEq = {
+          id: `eq-${Date.now()}`,
+          name: newEqName.trim(),
+          category: newEqCategory,
+          total: qty,
+          available: qty,
+          icon: newEqIcon.trim() || '📦'
+        };
+
+        setEquipment([...equipment, newEq]);
+        setNewEqName('');
+        setNewEqTotal(10);
+        setShowAddModal(false);
+        alert(`🎉 成功新增全新器材品項：${newEq.name} 共 ${qty} 件！`);
+      };
+
+      // 管理員：微調數量
+      const handleAdjustQty = (id, delta) => {
+        setEquipment(prev => prev.map(eq => {
+          if (eq.id === id) {
+            const newTotal = Math.max(0, eq.total + delta);
+            const newAvail = Math.max(0, eq.available + delta);
+            return { ...eq, total: newTotal, available: newAvail };
+          }
+          return eq;
+        }));
+      };
+
       return (
         <div className="min-h-screen bg-slate-100 p-4 font-sans max-w-4xl mx-auto">
           <header className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-5 rounded-2xl shadow-lg mb-6 text-center">
@@ -125,8 +163,8 @@
 
           <div className="flex justify-center gap-2 mb-6">
             <button onClick={() => setActiveTab('borrow')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'borrow' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>➕ 登記借用</button>
-            <button onClick={() => setActiveTab('records')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'records' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>📋 借還紀錄與管理</button>
-            <button onClick={() => setActiveTab('inventory')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>📦 器材庫存</button>
+            <button onClick={() => setActiveTab('records')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'records' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>📋 借還紀錄</button>
+            <button onClick={() => setActiveTab('inventory')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>⚙️ 器材數量與內容管理</button>
           </div>
 
           {activeTab === 'borrow' && (
@@ -200,7 +238,16 @@
 
           {activeTab === 'inventory' && (
             <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200 space-y-4">
-              <h2 className="font-bold text-lg text-slate-800 border-b pb-2">全校器材庫存總覽</h2>
+              <div className="flex justify-between items-center border-b pb-3">
+                <div>
+                  <h2 className="font-bold text-lg text-slate-800">全校器材庫存與內容管理</h2>
+                  <p className="text-xs text-slate-500">管理員可直接新增品項或微調數量</p>
+                </div>
+                <button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow">
+                  ➕ 新增全新器材品項
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {equipment.map(eq => (
                   <div key={eq.id} className="p-4 border rounded-xl bg-slate-50 flex justify-between items-center">
@@ -209,12 +256,56 @@
                       <h3 className="font-bold text-sm mt-1">{eq.name}</h3>
                       <p className="text-xs text-slate-500">分類：{eq.category}</p>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-emerald-600">{eq.available} <span className="text-xs text-slate-400 font-normal">/ {eq.total}</span></div>
-                      <span className="text-xs text-slate-400">在館可用數量</span>
+                    <div className="text-right space-y-1">
+                      <div className="text-base font-bold text-emerald-600">
+                        在庫: {eq.available} <span className="text-xs text-slate-400 font-normal">/ 總數: {eq.total}</span>
+                      </div>
+                      <div className="flex gap-1 justify-end">
+                        <button onClick={() => handleAdjustQty(eq.id, -1)} className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">-1</button>
+                        <button onClick={() => handleAdjustQty(eq.id, 1)} className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">+1</button>
+                      </div>
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* 新增器材彈窗 Modal */}
+          {showAddModal && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl">
+                <h3 className="font-bold text-lg border-b pb-2">➕ 新增器材內容（例如：鉛球）</h3>
+                <form onSubmit={handleCreateEquipment} className="space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">器材品項名稱</label>
+                    <input type="text" placeholder="例如：比賽用鉛球 (4kg)" value={newEqName} onChange={e => setNewEqName(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm" required />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 block mb-1">器材類別</label>
+                      <select value={newEqCategory} onChange={e => setNewEqCategory(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm bg-white">
+                        <option value="田徑">田徑</option>
+                        <option value="球類">球類</option>
+                        <option value="拍類">拍類</option>
+                        <option value="健身">健身</option>
+                        <option value="其他">其他</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 block mb-1">圖示 Emoji</label>
+                      <input type="text" value={newEqIcon} onChange={e => setNewEqIcon(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm text-center" placeholder="例如: 💣" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">進貨總數量</label>
+                    <input type="number" min="1" value={newEqTotal} onChange={e => setNewEqTotal(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm text-center font-bold" required />
+                  </div>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 border rounded-xl text-xs font-bold text-slate-600">取消</button>
+                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700">確認新增此器材</button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
