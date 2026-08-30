@@ -37,7 +37,12 @@
         { equipmentId: 'eq-1', qty: 1 }
       ]);
 
-      // 管理員新增器材表單狀態
+      // 管理員登入狀態與密碼設定
+      const ADMIN_PASSWORD = "11111";
+      const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+      const [inputPassword, setInputPassword] = useState('');
+
+      // 新增器材表單狀態
       const [showAddModal, setShowAddModal] = useState(false);
       const [newEqName, setNewEqName] = useState('');
       const [newEqCategory, setNewEqCategory] = useState('田徑');
@@ -119,7 +124,18 @@
         alert(`🎉 歸還成功！學號 ${target.studentId} 已解除鎖定！`);
       };
 
-      // 管理員：新增器材邏輯（例如：新增 鉛球 60 顆）
+      // 管理員密碼驗證
+      const handleAdminLogin = (e) => {
+        e.preventDefault();
+        if (inputPassword === ADMIN_PASSWORD) {
+          setIsAdminLoggedIn(true);
+          setInputPassword('');
+        } else {
+          alert('🔒 密碼錯誤！無法進入管理員頁面。');
+        }
+      };
+
+      // 管理員新增器材
       const handleCreateEquipment = (e) => {
         e.preventDefault();
         if (!newEqName.trim()) return alert('請輸入器材名稱！');
@@ -142,7 +158,7 @@
         alert(`🎉 成功新增全新器材品項：${newEq.name} 共 ${qty} 件！`);
       };
 
-      // 管理員：微調數量
+      // 管理員微調數量
       const handleAdjustQty = (id, delta) => {
         setEquipment(prev => prev.map(eq => {
           if (eq.id === id) {
@@ -164,7 +180,7 @@
           <div className="flex justify-center gap-2 mb-6">
             <button onClick={() => setActiveTab('borrow')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'borrow' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>➕ 登記借用</button>
             <button onClick={() => setActiveTab('records')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'records' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>📋 借還紀錄</button>
-            <button onClick={() => setActiveTab('inventory')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>⚙️ 器材數量與內容管理</button>
+            <button onClick={() => setActiveTab('inventory')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>🔒 器材管理 (須密碼)</button>
           </div>
 
           {activeTab === 'borrow' && (
@@ -238,36 +254,66 @@
 
           {activeTab === 'inventory' && (
             <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200 space-y-4">
-              <div className="flex justify-between items-center border-b pb-3">
-                <div>
-                  <h2 className="font-bold text-lg text-slate-800">全校器材庫存與內容管理</h2>
-                  <p className="text-xs text-slate-500">管理員可直接新增品項或微調數量</p>
+              {!isAdminLoggedIn ? (
+                /* 密碼驗證畫面 */
+                <div className="max-w-sm mx-auto my-8 text-center space-y-4 p-6 border rounded-2xl bg-slate-50">
+                  <div className="text-4xl">🔒</div>
+                  <h2 className="font-bold text-lg text-slate-800">管理員身份驗證</h2>
+                  <p className="text-xs text-slate-500">為了防止學生誤改庫存，進入此區請輸入管理員密碼</p>
+                  <form onSubmit={handleAdminLogin} className="space-y-3">
+                    <input 
+                      type="password" 
+                      placeholder="請輸入管理員密碼 (預設: 1234)" 
+                      value={inputPassword} 
+                      onChange={e => setInputPassword(e.target.value)} 
+                      className="w-full p-3 border rounded-xl text-center font-bold tracking-widest text-lg" 
+                      required 
+                    />
+                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow transition text-sm">
+                      解鎖進入管理頁面
+                    </button>
+                  </form>
                 </div>
-                <button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow">
-                  ➕ 新增全新器材品項
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {equipment.map(eq => (
-                  <div key={eq.id} className="p-4 border rounded-xl bg-slate-50 flex justify-between items-center">
+              ) : (
+                /* 已驗證成功：管理員控制台 */
+                <div>
+                  <div className="flex justify-between items-center border-b pb-3 mb-4">
                     <div>
-                      <span className="text-2xl">{eq.icon}</span>
-                      <h3 className="font-bold text-sm mt-1">{eq.name}</h3>
-                      <p className="text-xs text-slate-500">分類：{eq.category}</p>
+                      <h2 className="font-bold text-lg text-slate-800">全校器材庫存與內容管理</h2>
+                      <p className="text-xs text-slate-500">已解鎖 | 管理員控制台</p>
                     </div>
-                    <div className="text-right space-y-1">
-                      <div className="text-base font-bold text-emerald-600">
-                        在庫: {eq.available} <span className="text-xs text-slate-400 font-normal">/ 總數: {eq.total}</span>
-                      </div>
-                      <div className="flex gap-1 justify-end">
-                        <button onClick={() => handleAdjustQty(eq.id, -1)} className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">-1</button>
-                        <button onClick={() => handleAdjustQty(eq.id, 1)} className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">+1</button>
-                      </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow">
+                        ➕ 新增全新器材品項
+                      </button>
+                      <button onClick={() => setIsAdminLoggedIn(false)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold">
+                        🔒 上鎖離開
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {equipment.map(eq => (
+                      <div key={eq.id} className="p-4 border rounded-xl bg-slate-50 flex justify-between items-center">
+                        <div>
+                          <span className="text-2xl">{eq.icon}</span>
+                          <h3 className="font-bold text-sm mt-1">{eq.name}</h3>
+                          <p className="text-xs text-slate-500">分類：{eq.category}</p>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <div className="text-base font-bold text-emerald-600">
+                            在庫: {eq.available} <span className="text-xs text-slate-400 font-normal">/ 總數: {eq.total}</span>
+                          </div>
+                          <div className="flex gap-1 justify-end">
+                            <button onClick={() => handleAdjustQty(eq.id, -1)} className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">-1</button>
+                            <button onClick={() => handleAdjustQty(eq.id, 1)} className="px-2 py-0.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">+1</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
