@@ -37,7 +37,7 @@
         { equipmentId: 'eq-1', qty: 1 }
       ]);
 
-      // 管理員登入狀態與密碼設定
+      // 管理員登入狀態與密碼設定（驗證密碼：1234）
       const ADMIN_PASSWORD = "11111";
       const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
       const [inputPassword, setInputPassword] = useState('');
@@ -263,7 +263,7 @@
                   <form onSubmit={handleAdminLogin} className="space-y-3">
                     <input 
                       type="password" 
-                      placeholder="請輸入管理員密碼 (預設: 1234)" 
+                      placeholder="請輸入管理員密碼" 
                       value={inputPassword} 
                       onChange={e => setInputPassword(e.target.value)} 
                       className="w-full p-3 border rounded-xl text-center font-bold tracking-widest text-lg" 
