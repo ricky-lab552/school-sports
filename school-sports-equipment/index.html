@@ -66,7 +66,7 @@
       '體育三年一班'
     ];
 
-    // 精簡名稱後的器材清單
+    // 器材清單 (接力棒單位更新為「支」)
     const INITIAL_EQUIPMENT = [
       { id: 'eq-1', name: '籃球', category: '球類', unit: '顆', total: 30, available: 22, icon: '🏀' },
       { id: 'eq-2', name: '排球', category: '球類', unit: '顆', total: 25, available: 18, icon: '🏐' },
@@ -74,7 +74,7 @@
       { id: 'eq-4', name: '羽球拍組', category: '拍類', unit: '組', total: 20, available: 14, icon: '🏸' },
       { id: 'eq-5', name: '桌球拍組', category: '拍類', unit: '組', total: 20, available: 16, icon: '🏓' },
       { id: 'eq-6', name: '棒球組', category: '棒球類', unit: '組', total: 10, available: 8, icon: '⚾' },
-      { id: 'eq-7', name: '接力棒', category: '田徑', unit: '組', total: 10, available: 8, icon: '🏃' },
+      { id: 'eq-7', name: '接力棒', category: '田徑', unit: '支', total: 10, available: 8, icon: '🏃' },
       { id: 'eq-8', name: '皮克球拍組', category: '拍類', unit: '組', total: 15, available: 15, icon: '🏓' }
     ];
 
@@ -451,14 +451,14 @@
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-600 block mb-1">借用單位 (例: 組, 顆)</label>
-                      <input type="text" value={newEqUnit} onChange={e => setNewEqUnit(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm text-center font-bold" placeholder="組" required />
+                      <label className="text-xs font-bold text-slate-600 block mb-1">借用單位 (例: 支, 組, 顆)</label>
+                      <input type="text" value={newEqUnit} onChange={e => setNewEqUnit(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm text-center font-bold" placeholder="支" required />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-xs font-bold text-slate-600 block mb-1">圖示 Emoji</label>
-                      <input type="text" value={newEqIcon} onChange={e => setNewEqIcon(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm text-center" placeholder="例如: 🏸" />
+                      <input type="text" value={newEqIcon} onChange={e => setNewEqIcon(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm text-center" placeholder="例如: 🏃" />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 block mb-1">進貨總數量</label>
