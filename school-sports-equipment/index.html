@@ -9,7 +9,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-slate-50">
+<body class="bg-slate-50 text-slate-800">
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useMemo } = React;
@@ -19,89 +19,203 @@
       { id: 'eq-2', name: '標準排球 (Mikasa)', category: '球類', total: 25, available: 18, icon: '🏐' },
       { id: 'eq-3', name: '五號足球', category: '球類', total: 15, available: 12, icon: '⚽' },
       { id: 'eq-4', name: '羽球拍組 (含2拍1筒球)', category: '拍類', total: 20, available: 14, icon: '🏸' },
-      { id: 'eq-5', name: '桌球拍組 (含2拍3球)', category: '拍類', total: 20, available: 16, icon: '🏓' }
+      { id: 'eq-5', name: '桌球拍組 (含2拍3球)', category: '拍類', total: 20, available: 16, icon: '🏓' },
+      { id: 'eq-6', name: '大隊接力接力棒 (組)', category: '田徑', total: 10, available: 8, icon: '🏃' },
+      { id: 'eq-7', name: '皮克球拍組 (含2拍2球)', category: '拍類', total: 15, available: 15, icon: '🏓' }
     ];
 
     function App() {
+      const [activeTab, setActiveTab] = useState('borrow');
       const [records, setRecords] = useState([]);
       const [equipment, setEquipment] = useState(INITIAL_EQUIPMENT);
+
       const [studentClass, setStudentClass] = useState('');
       const [studentId, setStudentId] = useState('');
       const [studentName, setStudentName] = useState('');
-      const [selectedEq, setSelectedEq] = useState('eq-1');
-      const [borrowQty, setBorrowQty] = useState(1);
-      const [activeTab, setActiveTab] = useState('borrow');
+      
+      // 支援多項器材選取
+      const [selectedItems, setSelectedItems] = useState([
+        { equipmentId: 'eq-1', qty: 1 }
+      ]);
 
       const lockedStudentMap = useMemo(() => {
         const map = {};
-        records.filter(r => !r.returned).forEach(r => { map[r.studentId] = true; });
+        records.filter(r => !r.returned).forEach(r => { map[r.studentId.trim()] = true; });
         return map;
       }, [records]);
 
       const isLocked = lockedStudentMap[studentId.trim()];
 
-      const handleBorrow = (e) => {
-        e.preventDefault();
-        if (isLocked) return alert('該學號有未歸還器材，系統已鎖定！');
-        const eq = equipment.find(e => e.id === selectedEq);
-        if (borrowQty > eq.available) return alert('庫存不足！');
-
-        setRecords([{
-          id: Date.now(),
-          studentClass, studentId, studentName,
-          itemName: eq.name, eqId: eq.id, qty: parseInt(borrowQty),
-          time: new Date().toLocaleString(), returned: false
-        }, ...records]);
-
-        setEquipment(equipment.map(e => e.id === selectedEq ? { ...e, available: e.available - borrowQty } : e));
-        setStudentId(''); setStudentName(''); alert('借用成功！');
+      const handleAddItemRow = () => {
+        const unusedEq = equipment.find(eq => !selectedItems.some(i => i.equipmentId === eq.id)) || equipment[0];
+        setSelectedItems([...selectedItems, { equipmentId: unusedEq.id, qty: 1 }]);
       };
 
-      const handleReturn = (rec) => {
-        setRecords(records.map(r => r.id === rec.id ? { ...r, returned: true } : r));
-        setEquipment(equipment.map(e => e.id === rec.eqId ? { ...e, available: e.available + rec.qty } : e));
+      const handleRemoveItemRow = (index) => {
+        if (selectedItems.length <= 1) return alert('至少需借用一項器材！');
+        setSelectedItems(selectedItems.filter((_, i) => i !== index));
+      };
+
+      const handleItemChange = (index, field, value) => {
+        const updated = [...selectedItems];
+        updated[index] = { ...updated[index], [field]: value };
+        setSelectedItems(updated);
+      };
+
+      const handleBorrowSubmit = (e) => {
+        e.preventDefault();
+        if (isLocked) return alert(`借用失敗：學號 ${studentId} 目前有未歸還器材，系統已鎖定！`);
+
+        // 庫存檢查
+        for (const item of selectedItems) {
+          const eq = equipment.find(e => e.id === item.equipmentId);
+          const qty = parseInt(item.qty, 10);
+          if (qty <= 0 || isNaN(qty)) return alert(`「${eq.name}」數量無效！`);
+          if (qty > eq.available) return alert(`庫存不足！「${eq.name}」僅剩 ${eq.available} 件`);
+        }
+
+        const borrowItems = selectedItems.map(item => {
+          const eq = equipment.find(e => e.id === item.equipmentId);
+          return { id: eq.id, name: eq.name, qty: parseInt(item.qty, 10) };
+        });
+
+        // 建立借用紀錄
+        const newRecord = {
+          id: `REC-${Date.now().toString().slice(-6)}`,
+          studentClass: studentClass.trim(),
+          studentId: studentId.trim(),
+          studentName: studentName.trim(),
+          time: new Date().toLocaleString(),
+          returned: false,
+          items: borrowItems
+        };
+
+        // 扣減庫存
+        setEquipment(prev => prev.map(eq => {
+          const bItem = borrowItems.find(i => i.id === eq.id);
+          return bItem ? { ...eq, available: eq.available - bItem.qty } : eq;
+        }));
+
+        setRecords([newRecord, ...records]);
+        setSelectedItems([{ equipmentId: equipment[0].id, qty: 1 }]);
+        setStudentId('');
+        setStudentName('');
+        alert('✅ 成功完成多項器材登記借用！');
+      };
+
+      const handleReturnRecord = (recordId) => {
+        const target = records.find(r => r.id === recordId);
+        if (!target || target.returned) return;
+
+        setRecords(records.map(r => r.id === recordId ? { ...r, returned: true } : r));
+        setEquipment(prev => prev.map(eq => {
+          const rItem = target.items.find(i => i.id === eq.id);
+          return rItem ? { ...eq, available: eq.available + rItem.qty } : eq;
+        }));
+
+        alert(`🎉 歸還成功！學號 ${target.studentId} 已解除鎖定！`);
       };
 
       return (
-        <div className="min-h-screen bg-slate-100 p-4 font-sans">
-          <header className="bg-blue-700 text-white p-4 rounded-xl shadow-lg mb-6 text-center">
-            <h1 className="text-xl font-bold">🏫 學校運動器材借還管理系統</h1>
+        <div className="min-h-screen bg-slate-100 p-4 font-sans max-w-4xl mx-auto">
+          <header className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-5 rounded-2xl shadow-lg mb-6 text-center">
+            <h1 className="text-2xl font-bold tracking-wide">🏫 學校運動器材借還管理系統</h1>
+            <p className="text-xs text-blue-200 mt-1">支援單次多品項借用與智慧鎖定</p>
           </header>
-          
-          <div className="flex gap-2 mb-4 justify-center">
-            <button onClick={() => setActiveTab('borrow')} className={`px-4 py-2 rounded-lg font-bold ${activeTab === 'borrow' ? 'bg-blue-600 text-white' : 'bg-white'}`}>登記借用</button>
-            <button onClick={() => setActiveTab('records')} className={`px-4 py-2 rounded-lg font-bold ${activeTab === 'records' ? 'bg-blue-600 text-white' : 'bg-white'}`}>借還管理</button>
+
+          <div className="flex justify-center gap-2 mb-6">
+            <button onClick={() => setActiveTab('borrow')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'borrow' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>➕ 登記借用</button>
+            <button onClick={() => setActiveTab('records')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'records' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>📋 借還紀錄與管理</button>
+            <button onClick={() => setActiveTab('inventory')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>📦 器材庫存</button>
           </div>
 
           {activeTab === 'borrow' && (
-            <div className="max-w-md mx-auto bg-white p-6 rounded-xl shadow">
-              <form onSubmit={handleBorrow} className="space-y-4">
-                <input type="text" placeholder="班級" value={studentClass} onChange={e => setStudentClass(e.target.value)} className="w-full p-2 border rounded" required />
-                <input type="text" placeholder="學號" value={studentId} onChange={e => setStudentId(e.target.value)} className="w-full p-2 border rounded" required />
-                <input type="text" placeholder="姓名" value={studentName} onChange={e => setStudentName(e.target.value)} className="w-full p-2 border rounded" required />
-                {isLocked && <div className="text-red-600 font-bold text-sm">⛔ 該學生有未歸還器材，系統已鎖定！</div>}
-                <select value={selectedEq} onChange={e => setSelectedEq(e.target.value)} className="w-full p-2 border rounded">
-                  {equipment.map(e => <option key={e.id} value={e.id}>{e.icon} {e.name} (庫存: {e.available})</option>)}
-                </select>
-                <input type="number" min="1" value={borrowQty} onChange={e => setBorrowQty(e.target.value)} className="w-full p-2 border rounded" required />
-                <button type="submit" disabled={isLocked} className="w-full bg-blue-600 text-white py-2 rounded font-bold disabled:bg-gray-400">確認借用</button>
+            <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200 space-y-5">
+              <h2 className="font-bold text-lg text-slate-800 border-b pb-2">填寫借用人資料</h2>
+              <form onSubmit={handleBorrowSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input type="text" placeholder="班級 (例：高二忠班)" value={studentClass} onChange={e => setStudentClass(e.target.value)} className="p-3 border rounded-xl text-sm" required />
+                  <input type="text" placeholder="學號 (例：1120101)" value={studentId} onChange={e => setStudentId(e.target.value)} className="p-3 border rounded-xl text-sm" required />
+                  <input type="text" placeholder="學生姓名" value={studentName} onChange={e => setStudentName(e.target.value)} className="p-3 border rounded-xl text-sm" required />
+                </div>
+
+                {isLocked && (
+                  <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-sm font-bold">
+                    ⛔ 警示：該學號目前有未歸還的器材，系統已自動鎖定借用權限！
+                  </div>
+                )}
+
+                <div className="space-y-3 pt-2">
+                  <label className="font-bold text-sm text-slate-700 block">選擇借用品項（可一次借多項）：</label>
+                  {selectedItems.map((item, idx) => (
+                    <div key={idx} className="flex gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <select value={item.equipmentId} onChange={e => handleItemChange(idx, 'equipmentId', e.target.value)} className="flex-1 p-2 border rounded-lg text-sm bg-white">
+                        {equipment.map(eq => (
+                          <option key={eq.id} value={eq.id} disabled={eq.available <= 0}>
+                            {eq.icon} {eq.name} (在庫: {eq.available}/{eq.total})
+                          </option>
+                        ))}
+                      </select>
+                      <input type="number" min="1" value={item.qty} onChange={e => handleItemChange(idx, 'qty', e.target.value)} className="w-20 p-2 border rounded-lg text-center text-sm font-bold" required />
+                      <button type="button" onClick={() => handleRemoveItemRow(idx)} className="text-rose-500 font-bold px-2 py-1 text-xs hover:bg-rose-50 rounded">刪除</button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={handleAddItemRow} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-2 rounded-lg hover:bg-blue-100">+ 增加另一項器材</button>
+                </div>
+
+                <button type="submit" disabled={isLocked} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition disabled:bg-slate-300">
+                  確認登記借用
+                </button>
               </form>
             </div>
           )}
 
           {activeTab === 'records' && (
-            <div className="max-w-xl mx-auto bg-white p-4 rounded-xl shadow space-y-2">
-              {records.length === 0 ? <p className="text-center text-gray-500">尚無紀錄</p> : records.map(r => (
-                <div key={r.id} className="flex justify-between items-center p-3 border-b text-sm">
-                  <div>
-                    <span className="font-bold">{r.studentName} ({r.studentClass})</span>
-                    <p className="text-xs text-gray-500">{r.itemName} × {r.qty} | {r.time}</p>
-                  </div>
-                  {!r.returned ? (
-                    <button onClick={() => handleReturn(r)} className="bg-emerald-600 text-white px-3 py-1 rounded text-xs font-bold">歸還</button>
-                  ) : <span className="text-gray-400 text-xs">已歸還</span>}
+            <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200 space-y-4">
+              <h2 className="font-bold text-lg text-slate-800 border-b pb-2">器材借還紀錄</h2>
+              {records.length === 0 ? <p className="text-center text-slate-400 py-6">目前尚無借用紀錄</p> : (
+                <div className="space-y-3">
+                  {records.map(r => (
+                    <div key={r.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-xl bg-slate-50 gap-3">
+                      <div>
+                        <div className="font-bold text-slate-900">{r.studentName} ({r.studentClass}) - <span className="text-xs text-slate-500 font-mono">學號: {r.studentId}</span></div>
+                        <div className="text-xs text-slate-600 mt-1">
+                          借用品項：{r.items.map(i => `${i.name} × ${i.qty}`).join('、 ')}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-1">{r.time}</div>
+                      </div>
+                      {!r.returned ? (
+                        <button onClick={() => handleReturnRecord(r.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm">
+                          一鍵歸還所有器材
+                        </button>
+                      ) : (
+                        <span className="text-xs font-bold text-slate-400 bg-slate-200 px-3 py-1 rounded-lg">已歸還（已解鎖）</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+            </div>
+          )}
+
+          {activeTab === 'inventory' && (
+            <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200 space-y-4">
+              <h2 className="font-bold text-lg text-slate-800 border-b pb-2">全校器材庫存總覽</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {equipment.map(eq => (
+                  <div key={eq.id} className="p-4 border rounded-xl bg-slate-50 flex justify-between items-center">
+                    <div>
+                      <span className="text-2xl">{eq.icon}</span>
+                      <h3 className="font-bold text-sm mt-1">{eq.name}</h3>
+                      <p className="text-xs text-slate-500">分類：{eq.category}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-emerald-600">{eq.available} <span className="text-xs text-slate-400 font-normal">/ {eq.total}</span></div>
+                      <span className="text-xs text-slate-400">在館可用數量</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
