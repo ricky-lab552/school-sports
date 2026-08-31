@@ -14,6 +14,9 @@
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
 
+    // 您的專屬 Firebase 即時資料庫網址
+    const DB_URL = "https://school-sports-93b81-default-rtdb.firebaseio.com/";
+
     const INITIAL_CLASSES = [
       // 機械科 (各3班)
       '機械一年一班', '機械一年二班', '機械一年三班',
@@ -77,7 +80,7 @@
       { id: 'eq-8', name: '皮克球拍組', category: '拍類', unit: '組', total: 15, available: 15, icon: '🏓' }
     ];
 
-    const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000; // 180 天 (約 6 個月)
+    const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
 
     function App() {
       const [activeTab, setActiveTab] = useState('borrow');
@@ -91,11 +94,8 @@
       const [classSearchTerm, setClassSearchTerm] = useState('');
       const [historySearchTerm, setHistorySearchTerm] = useState('');
 
-      const [selectedItems, setSelectedItems] = useState([
-        { equipmentId: 'eq-1', qty: 1 }
-      ]);
+      const [selectedItems, setSelectedItems] = useState([{ equipmentId: 'eq-1', qty: 1 }]);
 
-      // 管理員登入密碼：11111
       const ADMIN_PASSWORD = "11111";
       const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
       const [inputPassword, setInputPassword] = useState('');
@@ -108,10 +108,45 @@
       const [newEqTotal, setNewEqTotal] = useState(10);
       const [newClassName, setNewClassName] = useState('');
 
-      // 自動清理超過 6 個月舊紀錄功能
       const cleanupOldRecords = (currentRecords) => {
         const now = Date.now();
         return currentRecords.filter(r => (now - r.timestamp) <= SIX_MONTHS_MS);
+      };
+
+      // 雲端即時連線 (每 2 秒輪詢更新)
+      const fetchCloudData = async () => {
+        try {
+          const res = await fetch(`${DB_URL}data.json`);
+          const data = await res.json();
+          if (data) {
+            if (data.records) setRecords(cleanupOldRecords(Object.values(data.records)));
+            if (data.equipment) setEquipment(data.equipment);
+            if (data.classList) setClassList(data.classList);
+          }
+        } catch (err) {
+          console.error("雲端讀取失敗:", err);
+        }
+      };
+
+      useEffect(() => {
+        fetchCloudData();
+        const interval = setInterval(fetchCloudData, 2000);
+        return () => clearInterval(interval);
+      }, []);
+
+      const saveToCloud = async (newRecords, newEq, newClasses) => {
+        try {
+          await fetch(`${DB_URL}data.json`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              records: newRecords || records,
+              equipment: newEq || equipment,
+              classList: newClasses || classList
+            })
+          });
+        } catch (err) {
+          alert("雲端同步失敗，請確認網路！");
+        }
       };
 
       const filteredClassList = useMemo(() => {
@@ -155,7 +190,7 @@
         setSelectedItems(updated);
       };
 
-      const handleBorrowSubmit = (e) => {
+      const handleBorrowSubmit = async (e) => {
         e.preventDefault();
         if (!studentClass) return alert('請選擇班級！');
         if (isLocked) return alert(`借用失敗：學號 ${studentId} 目前有未歸還器材，系統已鎖定！`);
@@ -185,55 +220,49 @@
           items: borrowItems
         };
 
-        setEquipment(prev => prev.map(eq => {
+        const updatedEq = equipment.map(eq => {
           const bItem = borrowItems.find(i => i.id === eq.id);
           return bItem ? { ...eq, available: eq.available - bItem.qty } : eq;
-        }));
+        });
 
-        setRecords([newRecord, ...cleanupOldRecords(records)]);
+        const updatedRecords = [newRecord, ...records];
+
+        setEquipment(updatedEq);
+        setRecords(updatedRecords);
+        await saveToCloud(updatedRecords, updatedEq, classList);
+
         setSelectedItems([{ equipmentId: equipment[0].id, qty: 1 }]);
         setStudentId('');
         setStudentName('');
-        alert('✅ 成功完成登記借用！');
+        alert('✅ 成功完成登記借用！已被雲端即時記錄。');
       };
 
-      const handleReturnRecord = (recordId) => {
+      const handleReturnRecord = async (recordId) => {
         const target = records.find(r => r.id === recordId);
         if (!target || target.returned) return;
 
         const returnTimeStr = new Date().toLocaleString();
-
-        setRecords(records.map(r => r.id === recordId ? { ...r, returned: true, returnTime: returnTimeStr } : r));
-        setEquipment(prev => prev.map(eq => {
+        const updatedRecords = records.map(r => r.id === recordId ? { ...r, returned: true, returnTime: returnTimeStr } : r);
+        const updatedEq = equipment.map(eq => {
           const rItem = target.items.find(i => i.id === eq.id);
           return rItem ? { ...eq, available: eq.available + rItem.qty } : eq;
-        }));
+        });
+
+        setRecords(updatedRecords);
+        setEquipment(updatedEq);
+        await saveToCloud(updatedRecords, updatedEq, classList);
 
         alert(`🎉 歸還成功！學號 ${target.studentId} 已解除鎖定！`);
       };
 
-      // 管理員手動單筆刪除歷史紀錄
-      const handleDeleteHistoryRecord = (recordId) => {
+      const handleDeleteHistoryRecord = async (recordId) => {
         const target = records.find(r => r.id === recordId);
         if (!target) return;
-        if (!target.returned) {
-          if (!confirm('⚠️ 警告：該學生尚未歸還器材！強制刪除紀錄將直接解除其鎖定狀態，確定要刪除嗎？')) return;
-        } else {
-          if (!confirm('確定要刪除這筆歷史紀錄嗎？（刪除後不可復原）')) return;
-        }
+        if (!target.returned && !confirm('⚠️ 警告：該學生尚未歸還器材，確定刪除嗎？')) return;
 
-        setRecords(records.filter(r => r.id !== recordId));
-      };
-
-      // 管理員手動執行清理超過 6 個月紀錄
-      const handleManualCleanupSixMonths = () => {
-        const now = Date.now();
-        const initialCount = records.length;
-        const cleaned = records.filter(r => (now - r.timestamp) <= SIX_MONTHS_MS);
-        const removedCount = initialCount - cleaned.length;
-
-        setRecords(cleaned);
-        alert(`🧹 清理完成！共刪除了 ${removedCount} 筆超過 6 個月的舊歷史紀錄。`);
+        const updatedRecords = records.filter(r => r.id !== recordId);
+        setRecords(updatedRecords);
+        await saveToCloud(updatedRecords, equipment, classList);
       };
 
       const handleAdminLogin = (e) => {
@@ -246,18 +275,20 @@
         }
       };
 
-      const handleAddClass = (e) => {
+      const handleAddClass = async (e) => {
         e.preventDefault();
         const name = newClassName.trim();
         if (!name) return alert('請輸入班級名稱！');
-        if (classList.includes(name)) return alert('該班級已經存在於清單中！');
+        if (classList.includes(name)) return alert('該班級已存在！');
 
-        setClassList([...classList, name]);
+        const updatedClasses = [...classList, name];
+        setClassList(updatedClasses);
         setNewClassName('');
+        await saveToCloud(records, equipment, updatedClasses);
         alert(`🎉 成功新增班級：${name}`);
       };
 
-      const handleCreateEquipment = (e) => {
+      const handleCreateEquipment = async (e) => {
         e.preventDefault();
         if (!newEqName.trim()) return alert('請輸入器材名稱！');
         const qty = parseInt(newEqTotal, 10);
@@ -273,29 +304,32 @@
           icon: newEqIcon.trim() || '📦'
         };
 
-        setEquipment([...equipment, newEq]);
+        const updatedEq = [...equipment, newEq];
+        setEquipment(updatedEq);
         setNewEqName('');
-        setNewEqTotal(10);
         setShowAddModal(false);
-        alert(`🎉 成功新增全新器材品項：${newEq.name} 共 ${qty} ${newEq.unit}！`);
+        await saveToCloud(records, updatedEq, classList);
+        alert(`🎉 成功新增全新器材：${newEq.name}`);
       };
 
-      const handleAdjustQty = (id, delta) => {
-        setEquipment(prev => prev.map(eq => {
+      const handleAdjustQty = async (id, delta) => {
+        const updatedEq = equipment.map(eq => {
           if (eq.id === id) {
             const newTotal = Math.max(0, eq.total + delta);
             const newAvail = Math.max(0, eq.available + delta);
             return { ...eq, total: newTotal, available: newAvail };
           }
           return eq;
-        }));
+        });
+        setEquipment(updatedEq);
+        await saveToCloud(records, updatedEq, classList);
       };
 
       return (
         <div className="min-h-screen bg-slate-100 p-4 font-sans max-w-4xl mx-auto">
           <header className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-5 rounded-2xl shadow-lg mb-6 text-center">
             <h1 className="text-2xl font-bold tracking-wide">🏫 學校運動器材借還管理系統</h1>
-            <p className="text-xs text-blue-200 mt-1">支援關鍵字搜尋班級、多品項借用與智慧鎖定 (歷史自動保留 6 個月)</p>
+            <p className="text-xs text-blue-200 mt-1">🌐 雲端同步版 (跨手機即時紀錄連線)</p>
           </header>
 
           <div className="flex justify-center gap-2 mb-6">
@@ -422,35 +456,25 @@
                   <div className="flex justify-between items-center border-b pb-3">
                     <div>
                       <h2 className="font-bold text-lg text-slate-800">全校器材、班級與歷史紀錄管理</h2>
-                      <p className="text-xs text-slate-500">已解鎖 | 管理員控制台 (自動保留 6 個月歷史紀錄)</p>
+                      <p className="text-xs text-slate-500">已解鎖 | 管理員控制台 (雲端連線同步中)</p>
                     </div>
                     <button onClick={() => setIsAdminLoggedIn(false)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold">
                       🔒 上鎖離開
                     </button>
                   </div>
 
-                  {/* 管理員專用：歷史借還總表 */}
                   <div className="bg-slate-50 p-4 rounded-xl border space-y-3">
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                       <div>
                         <h3 className="font-bold text-sm text-slate-800">📜 全校歷史借還紀錄總表 (共 {filteredHistoryRecords.length} 筆)</h3>
-                        <p className="text-[11px] text-slate-500">系統自動限制最多保留近 6 個月內的紀錄</p>
                       </div>
-                      <div className="flex gap-2 items-center">
-                        <button 
-                          onClick={handleManualCleanupSixMonths}
-                          className="bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 px-2.5 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap"
-                        >
-                          🧹 清理 6 個月前紀錄
-                        </button>
-                        <input 
-                          type="text" 
-                          placeholder="搜尋學生姓名/學號/班級..." 
-                          value={historySearchTerm} 
-                          onChange={e => setHistorySearchTerm(e.target.value)} 
-                          className="p-1.5 border rounded-lg text-xs bg-white w-full sm:w-48" 
-                        />
-                      </div>
+                      <input 
+                        type="text" 
+                        placeholder="搜尋學生姓名/學號/班級..." 
+                        value={historySearchTerm} 
+                        onChange={e => setHistorySearchTerm(e.target.value)} 
+                        className="p-1.5 border rounded-lg text-xs bg-white w-full sm:w-48" 
+                      />
                     </div>
 
                     {filteredHistoryRecords.length === 0 ? (
@@ -503,13 +527,12 @@
                     )}
                   </div>
 
-                  {/* 管理員：新增班級功能 */}
                   <div className="bg-slate-50 p-4 rounded-xl border space-y-2">
                     <h3 className="font-bold text-sm text-slate-800">🏫 新增可選班級</h3>
                     <form onSubmit={handleAddClass} className="flex gap-2">
                       <input 
                         type="text" 
-                        placeholder="輸入新班級名稱 (例: 商經一年六班)" 
+                        placeholder="輸入新班級名稱" 
                         value={newClassName} 
                         onChange={e => setNewClassName(e.target.value)} 
                         className="flex-1 p-2 border rounded-xl text-sm" 
@@ -521,7 +544,6 @@
                     </form>
                   </div>
 
-                  {/* 器材管理區 */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <h3 className="font-bold text-sm text-slate-800">📦 全校器材庫存清單</h3>
