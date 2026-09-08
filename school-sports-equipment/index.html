@@ -14,59 +14,43 @@
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
 
-    // 您的專屬 Firebase 即時資料庫網址
     const DB_URL = "https://school-sports-93b81-default-rtdb.firebaseio.com/";
 
+    // 匯入《鳳山商工 115 學年度第一學期體育課程 - 老師對應班級表》
+    const CLASS_TEACHER_MAP = {
+      "商經一年一班": "黃國治", "商經一年二班": "黃國治", "商經一年三班": "施維泯", "商經一年四班": "林保賢",
+      "商經二年一班": "陳泰龍", "商經二年二班": "趙沁勳", "商經二年三班": "黃國治", "商經二年四班": "蔡佳婷", "商經二年五班": "施維泯",
+      "商經三年一班": "黃垣歡", "商經三年二班": "蔡佳婷", "商經三年三班": "陳泰龍", "商經三年四班": "林保賢", "商經三年五班": "林保賢",
+      "國貿一年一班": "林保賢", "國貿一年二班": "黃國治", "國貿二年一班": "趙仲詳", "國貿二年二班": "施維泯",
+      "國貿三年一班": "蔡佳婷", "國貿三年二班": "林保賢",
+      "室設一年一班": "林保賢", "室設二年一班": "陳泰龍 / 趙仲詳", "室設二年二班": "黃國治",
+      "室設三年一班": "蔡佳婷", "室設三年二班": "翁育齊",
+      "家設一年一班": "黃垣歡", "家設二年一班": "蔡佳婷", "家設三年一班": "陳彥融",
+      "會事一年一班": "林保賢", "會事二年一班": "蔡佳婷", "會事二年二班": "施維泯",
+      "會事三年一班": "黃垣歡", "會事三年二班": "陳彥融",
+      "機械一年一班": "黃國治", "機械一年二班": "蔡佳婷 / 趙沁勳", "機械一年三班": "陳泰龍",
+      "機械二年一班": "陳泰龍", "機械二年二班": "趙沁勳", "機械二年三班": "陳彥融",
+      "機械三年一班": "施維泯", "機械三年二班": "蔡佳婷", "機械三年三班": "蔡佳婷",
+      "觀光一年一班": "黃國治", "觀光一年二班": "黃垣歡", "觀光二年一班": "趙沁勳", "觀光三年一班": "黃垣歡",
+      "資處一年一班": "黃垣歡", "資處二年一班": "趙沁勳", "資處三年一班": "施維泯",
+      "電圖一年一班": "黃垣歡", "電圖一年三班": "林保賢", "電圖二年一班": "陳泰龍", "電圖二年二班": "趙沁勳 / 施維泯", "電圖二年三班": "陳彥融",
+      "電圖三年一班": "翁育齊", "電圖三年二班": "陳彥融", "電圖三年三班": "陳泰龍",
+      "餐服一年一班": "趙仲詳", "餐服二年一班": "趙仲詳", "餐服三年一班": "陳怡心",
+      "體育一年一班": "黃國治", "體育二年一班": "林保賢", "體育三年一班": "陳彥融"
+    };
+
     const INITIAL_CLASSES = [
-      // 機械科 (各3班)
-      '機械一年一班', '機械一年二班', '機械一年三班',
-      '機械二年一班', '機械二年二班', '機械二年三班',
-      '機械三年一班', '機械三年二班', '機械三年三班',
-
-      // 電圖科 (各3班)
-      '電圖一年一班', '電圖一年二班', '電圖一年三班',
-      '電圖二年一班', '電圖二年二班', '電圖二年三班',
-      '電圖三年一班', '電圖三年二班', '電圖三年三班',
-
-      // 觀光科 (各2班)
-      '觀光一年一班', '觀光一年二班',
-      '觀光二年一班', '觀光二年二班',
-      '觀光三年一班', '觀光三年二班',
-
-      // 商經科 (各5班)
-      '商經一年一班', '商經一年二班', '商經一年三班', '商經一年四班', '商經一年五班',
-      '商經二年一班', '商經二年二班', '商經二年三班', '商經二年四班', '商經二年五班',
-      '商經三年一班', '商經三年二班', '商經三年三班', '商經三年四班', '商經三年五班',
-
-      // 國貿科 (各2班)
-      '國貿一年一班', '國貿一年二班',
-      '國貿二年一班', '國貿二年二班',
-      '國貿三年一班', '國貿三年二班',
-
-      // 會事科 (各2班)
-      '會事一年一班', '會事一年二班',
-      '會事二年一班', '會事二年二班',
-      '會事三年一班', '會事三年二班',
-
-      // 資處科 (各1班)
-      '資處一年一班',
-      '資處二年一班',
-      '資處三年一班',
-
-      // 室設科 (各2班)
-      '室設一年一班', '室設一年二班',
-      '室設二年一班', '室設二年二班',
-      '室設三年一班', '室設三年二班',
-
-      // 家設科 (各1班)
-      '家設一年一班',
-      '家設二年一班',
-      '家設三年一班',
-
-      // 體育科 (各1班)
-      '體育一年一班',
-      '體育二年一班',
-      '體育三年一班'
+      '機械一年一班', '機械一年二班', '機械一年三班', '機械二年一班', '機械二年二班', '機械二年三班', '機械三年一班', '機械三年二班', '機械三年三班',
+      '電圖一年一班', '電圖一年二班', '電圖一年三班', '電圖二年一班', '電圖二年二班', '電圖二年三班', '電圖三年一班', '電圖三年二班', '電圖三年三班',
+      '觀光一年一班', '觀光一年二班', '觀光二年一班', '觀光二年二班', '觀光三年一班', '觀光三年二班',
+      '商經一年一班', '商經一年二班', '商經一年三班', '商經一年四班', '商經一年五班', '商經二年一班', '商經二年二班', '商經二年三班', '商經二年四班', '商經二年五班', '商經三年一班', '商經三年二班', '商經三年三班', '商經三年四班', '商經三年五班',
+      '國貿一年一班', '國貿一年二班', '國貿二年一班', '國貿二年二班', '國貿三年一班', '國貿三年二班',
+      '會事一年一班', '會事一年二班', '會事二年一班', '會事二年二班', '會事三年一班', '會事三年二班',
+      '資處一年一班', '資處二年一班', '資處三年一班',
+      '室設一年一班', '室設一年二班', '室設二年一班', '室設二年二班', '室設三年一班', '室設三年二班',
+      '家設一年一班', '家設二年一班', '家設三年一班',
+      '體育一年一班', '體育二年一班', '體育三年一班',
+      '餐服一年一班', '餐服二年一班', '餐服三年一班'
     ];
 
     const INITIAL_EQUIPMENT = [
@@ -113,7 +97,6 @@
         return currentRecords.filter(r => (now - r.timestamp) <= SIX_MONTHS_MS);
       };
 
-      // 雲端即時連線 (每 2 秒輪詢更新)
       const fetchCloudData = async () => {
         try {
           const res = await fetch(`${DB_URL}data.json`);
@@ -121,7 +104,10 @@
           if (data) {
             if (data.records) setRecords(cleanupOldRecords(Object.values(data.records)));
             if (data.equipment) setEquipment(data.equipment);
-            if (data.classList) setClassList(data.classList);
+            if (data.classList) {
+              const mergedClasses = Array.from(new Set([...INITIAL_CLASSES, ...data.classList]));
+              setClassList(mergedClasses);
+            }
           }
         } catch (err) {
           console.error("雲端讀取失敗:", err);
@@ -162,6 +148,7 @@
           r.studentName.toLowerCase().includes(term) ||
           r.studentId.toLowerCase().includes(term) ||
           r.studentClass.toLowerCase().includes(term) ||
+          (CLASS_TEACHER_MAP[r.studentClass] || '').toLowerCase().includes(term) ||
           r.items.some(i => i.name.toLowerCase().includes(term))
         );
       }, [records, historySearchTerm]);
@@ -193,7 +180,7 @@
       const handleBorrowSubmit = async (e) => {
         e.preventDefault();
         if (!studentClass) return alert('請選擇班級！');
-        if (isLocked) return alert(`借用失敗：學號 ${studentId} 目前有未歸還器材，系統已鎖定！`);
+        if (isLocked) return alert(`借用失敗：學號 ${studentId} 目前有未歸還器材，系統已自動鎖定！`);
 
         for (const item of selectedItems) {
           const eq = equipment.find(e => e.id === item.equipmentId);
@@ -208,10 +195,12 @@
         });
 
         const now = Date.now();
+        const teacherName = CLASS_TEACHER_MAP[studentClass] || "未指定";
         const newRecord = {
           id: `REC-${now.toString().slice(-6)}`,
           timestamp: now,
           studentClass,
+          teacherName,
           studentId: studentId.trim(),
           studentName: studentName.trim(),
           time: new Date().toLocaleString(),
@@ -234,7 +223,7 @@
         setSelectedItems([{ equipmentId: equipment[0].id, qty: 1 }]);
         setStudentId('');
         setStudentName('');
-        alert('✅ 成功完成登記借用！已被雲端即時記錄。');
+        alert(`✅ 成功完成登記借用！(任課老師：${teacherName})`);
       };
 
       const handleReturnRecord = async (recordId) => {
@@ -252,7 +241,7 @@
         setEquipment(updatedEq);
         await saveToCloud(updatedRecords, updatedEq, classList);
 
-        alert(`🎉 歸還成功！學號 ${target.studentId} 已解除鎖定！`);
+        alert(`🎉 歸還確認成功！學號 ${target.studentId} 已解除鎖定！`);
       };
 
       const handleDeleteHistoryRecord = async (recordId) => {
@@ -329,13 +318,13 @@
         <div className="min-h-screen bg-slate-100 p-4 font-sans max-w-4xl mx-auto">
           <header className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-5 rounded-2xl shadow-lg mb-6 text-center">
             <h1 className="text-2xl font-bold tracking-wide">🏫 學校運動器材借還管理系統</h1>
-            <p className="text-xs text-blue-200 mt-1">🌐 雲端同步版 (跨手機即時紀錄連線)</p>
+            <p className="text-xs text-blue-200 mt-1">🌐 雲端同步版 (顯示班級與任課體育老師)</p>
           </header>
 
           <div className="flex justify-center gap-2 mb-6">
             <button onClick={() => setActiveTab('borrow')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'borrow' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>➕ 登記借用</button>
-            <button onClick={() => setActiveTab('records')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'records' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>📋 借還紀錄</button>
-            <button onClick={() => setActiveTab('inventory')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>🔒 器材與歷史管理</button>
+            <button onClick={() => setActiveTab('records')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'records' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>📋 借還狀態查詢</button>
+            <button onClick={() => setActiveTab('inventory')} className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition ${activeTab === 'inventory' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600'}`}>🔒 管理者審核與管理</button>
           </div>
 
           {activeTab === 'borrow' && (
@@ -347,7 +336,7 @@
                   <label className="font-bold text-xs text-blue-900 block">🔍 第一步：快速搜尋與選擇班級</label>
                   <input 
                     type="text" 
-                    placeholder="輸入關鍵字快速搜尋 (例如: 商經、資處、二年、五班...)" 
+                    placeholder="輸入關鍵字快速搜尋 (例如: 商經、黃國治、林保賢...)" 
                     value={classSearchTerm} 
                     onChange={e => setClassSearchTerm(e.target.value)} 
                     className="w-full p-2 border rounded-lg text-xs bg-white" 
@@ -359,7 +348,11 @@
                     required
                   >
                     <option value="">-- 請選擇班級 (符合搜尋條件共 {filteredClassList.length} 個) --</option>
-                    {filteredClassList.map((c, i) => <option key={i} value={c}>{c}</option>)}
+                    {filteredClassList.map((c, i) => (
+                      <option key={i} value={c}>
+                        {c} {CLASS_TEACHER_MAP[c] ? `(任課老師：${CLASS_TEACHER_MAP[c]})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -404,25 +397,28 @@
 
           {activeTab === 'records' && (
             <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200 space-y-4">
-              <h2 className="font-bold text-lg text-slate-800 border-b pb-2">目前未歸還 / 即時借還選單</h2>
-              {records.length === 0 ? <p className="text-center text-slate-400 py-6">目前尚無未歸還紀錄</p> : (
+              <h2 className="font-bold text-lg text-slate-800 border-b pb-2">即時借用狀態查詢</h2>
+              <p className="text-xs text-slate-500">提示：為維護器材管理，學生歸還器材請至櫃檯由體育老師核對並於後台按一鍵歸還。</p>
+              {records.filter(r => !r.returned).length === 0 ? <p className="text-center text-slate-400 py-6">🎉 目前無任何未歸還的器材！</p> : (
                 <div className="space-y-3">
-                  {records.map(r => (
+                  {records.filter(r => !r.returned).map(r => (
                     <div key={r.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-xl bg-slate-50 gap-3">
                       <div>
-                        <div className="font-bold text-slate-900">{r.studentName} ({r.studentClass}) - <span className="text-xs text-slate-500 font-mono">學號: {r.studentId}</span></div>
+                        <div className="font-bold text-slate-900">
+                          {r.studentName} ({r.studentClass}) 
+                          <span className="ml-2 text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-200">
+                            任課老師: {CLASS_TEACHER_MAP[r.studentClass] || r.teacherName || '未指定'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 font-mono mt-0.5">學號: {r.studentId}</div>
                         <div className="text-xs text-slate-600 mt-1">
                           借用品項：{r.items.map(i => `${i.name} × ${i.qty} ${i.unit || '組'}`).join('、 ')}
                         </div>
                         <div className="text-xs text-slate-400 mt-1">借用時間：{r.time}</div>
                       </div>
-                      {!r.returned ? (
-                        <button onClick={() => handleReturnRecord(r.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm">
-                          一鍵歸還所有器材
-                        </button>
-                      ) : (
-                        <span className="text-xs font-bold text-slate-400 bg-slate-200 px-3 py-1 rounded-lg">已歸還（已解鎖）</span>
-                      )}
+                      <span className="text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 whitespace-nowrap">
+                        🔴 借用中 (請至櫃檯歸還)
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -435,8 +431,8 @@
               {!isAdminLoggedIn ? (
                 <div className="max-w-sm mx-auto my-8 text-center space-y-4 p-6 border rounded-2xl bg-slate-50">
                   <div className="text-4xl">🔒</div>
-                  <h2 className="font-bold text-lg text-slate-800">管理員身份驗證</h2>
-                  <p className="text-xs text-slate-500">進入此區請輸入管理員密碼</p>
+                  <h2 className="font-bold text-lg text-slate-800">體育老師 / 管理員驗證</h2>
+                  <p className="text-xs text-slate-500">進行歸還審核與管理請輸入密碼</p>
                   <form onSubmit={handleAdminLogin} className="space-y-3">
                     <input 
                       type="password" 
@@ -455,22 +451,53 @@
                 <div className="space-y-6">
                   <div className="flex justify-between items-center border-b pb-3">
                     <div>
-                      <h2 className="font-bold text-lg text-slate-800">全校器材、班級與歷史紀錄管理</h2>
-                      <p className="text-xs text-slate-500">已解鎖 | 管理員控制台 (雲端連線同步中)</p>
+                      <h2 className="font-bold text-lg text-slate-800">管理者控制台 (歸還審核與老師對照)</h2>
+                      <p className="text-xs text-slate-500">已解鎖 | 體育老師專用控制台</p>
                     </div>
                     <button onClick={() => setIsAdminLoggedIn(false)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold">
                       🔒 上鎖離開
                     </button>
                   </div>
 
+                  {/* 老師對應班級借用即時對照表 */}
+                  <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200 space-y-3">
+                    <h3 className="font-bold text-sm text-blue-900">🏃 體育老師與任教班級對照表 (對應 115 學年度第一學期)</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {Array.from(new Set(Object.values(CLASS_TEACHER_MAP))).map((teacher, idx) => {
+                        const teacherClasses = Object.keys(CLASS_TEACHER_MAP).filter(c => CLASS_TEACHER_MAP[c].includes(teacher));
+                        const activeBorrowCount = records.filter(r => !r.returned && CLASS_TEACHER_MAP[r.studentClass]?.includes(teacher)).length;
+                        return (
+                          <div key={idx} className="bg-white p-3 rounded-lg border border-blue-100 flex justify-between items-start">
+                            <div>
+                              <span className="font-bold text-blue-900 text-sm">{teacher} 老師</span>
+                              <div className="text-[11px] text-slate-500 mt-1 line-clamp-2">
+                                任教: {teacherClasses.join('、 ')}
+                              </div>
+                            </div>
+                            {activeBorrowCount > 0 ? (
+                              <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold text-[10px] whitespace-nowrap">
+                                🔴 {activeBorrowCount} 班借用中
+                              </span>
+                            ) : (
+                              <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded text-[10px] whitespace-nowrap">
+                                🟢 尚無借用
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 管理員專用：歸還審核與歷史總表 */}
                   <div className="bg-slate-50 p-4 rounded-xl border space-y-3">
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                       <div>
-                        <h3 className="font-bold text-sm text-slate-800">📜 全校歷史借還紀錄總表 (共 {filteredHistoryRecords.length} 筆)</h3>
+                        <h3 className="font-bold text-sm text-slate-800">📜 全校借還審核與歷史紀錄總表 (共 {filteredHistoryRecords.length} 筆)</h3>
                       </div>
                       <input 
                         type="text" 
-                        placeholder="搜尋學生姓名/學號/班級..." 
+                        placeholder="搜尋學生/學號/班級/老師..." 
                         value={historySearchTerm} 
                         onChange={e => setHistorySearchTerm(e.target.value)} 
                         className="p-1.5 border rounded-lg text-xs bg-white w-full sm:w-48" 
@@ -485,11 +512,11 @@
                           <thead className="bg-slate-200 text-slate-700 font-bold border-b">
                             <tr>
                               <th className="p-2">狀態</th>
-                              <th className="p-2">班級 / 學生 / 學號</th>
+                              <th className="p-2">班級 / 任課老師 / 學生 / 學號</th>
                               <th className="p-2">借用品項與數量</th>
                               <th className="p-2">借用時間</th>
                               <th className="p-2">歸還時間</th>
-                              <th className="p-2 text-center">操作</th>
+                              <th className="p-2 text-center">管理者動作</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y">
@@ -499,11 +526,16 @@
                                   {r.returned ? (
                                     <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">🟢 已歸還</span>
                                   ) : (
-                                    <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">🔴 借用中</span>
+                                    <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">🔴 未歸還</span>
                                   )}
                                 </td>
                                 <td className="p-2">
-                                  <div className="font-bold">{r.studentClass} - {r.studentName}</div>
+                                  <div className="font-bold">
+                                    {r.studentClass} - {r.studentName}
+                                  </div>
+                                  <div className="text-[11px] text-indigo-600 font-medium">
+                                    任課老師：{CLASS_TEACHER_MAP[r.studentClass] || r.teacherName || '未指定'}
+                                  </div>
                                   <div className="text-slate-400 font-mono text-[10px]">學號: {r.studentId}</div>
                                 </td>
                                 <td className="p-2 font-medium text-slate-700">
@@ -511,7 +543,15 @@
                                 </td>
                                 <td className="p-2 text-slate-500 whitespace-nowrap">{r.time}</td>
                                 <td className="p-2 text-slate-500 whitespace-nowrap">{r.returnTime || '—'}</td>
-                                <td className="p-2 text-center whitespace-nowrap">
+                                <td className="p-2 text-center whitespace-nowrap space-x-1">
+                                  {!r.returned && (
+                                    <button 
+                                      onClick={() => handleReturnRecord(r.id)} 
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded text-xs font-bold shadow-sm transition"
+                                    >
+                                      一鍵歸還
+                                    </button>
+                                  )}
                                   <button 
                                     onClick={() => handleDeleteHistoryRecord(r.id)} 
                                     className="bg-rose-100 hover:bg-rose-200 text-rose-700 border border-rose-300 px-2 py-1 rounded text-xs font-bold transition"
